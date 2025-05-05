@@ -1,26 +1,10 @@
 "use strict";
-/** @type{HTMLCanvasElement} **/
-const canvas = document.getElementById("main_canvas");
-/** @type{WebGL2RenderingContext} **/
-const gl = canvas.getContext('webgl2');
-/** @type{WebGLProgram} */
-let program;
-
-let aPosition;
-let uScale;
-let uTranslation;
-let uRotation;
-let uColor;
-let aColor;
-let uCanvas;
-let uBlendMode;
-/** @type{WebGLBuffer} **/
-let positionBuffer;
-let colorBuffer;
-/** @type{WebGLVertexArrayObject} **/
-let vao;
-
-await init();
+import {Renderer} from './Renderer.js';
+const cos = Math.cos;
+const sin = Math.sin;
+const rr = new Renderer(document.getElementById("main_canvas"));
+await rr.init();
+let lastTime = performance.now();
 let quad = [
   0, 0,
   0, 100,
@@ -43,84 +27,59 @@ let color = [
     1, 1, 1, 1,
     1, 1, 1, 1,
 ]
-gl.viewport(0, 0, canvas.width, canvas.height);
-gl.uniform2f(uCanvas, canvas.width, canvas.height);
-gl.uniform2f(uScale, 1, 1);
 
-vao = gl.createVertexArray();
-gl.bindVertexArray(vao);
-
-const POS = 0;
-const COL = 1;
-let buffer = gl.createBuffer();
-positionBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-gl.enableVertexAttribArray(POS);
-gl.vertexAttribPointer(POS, 2, gl.FLOAT, false, 0, 0);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(quad), gl.STATIC_DRAW);
-
-colorBuffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-gl.enableVertexAttribArray(aColor);
-gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 0, 0)
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
-
-gl.clear(gl.COLOR_BUFFER_BIT);
-gl.uniform4f(uColor, 1, 1, 1, 1);
-gl.uniform2f(uTranslation, 100, 100);
-gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-gl.uniform2f(uTranslation, 300, 300);
-gl.uniform1f(uRotation, Math.PI / 0.3);
-gl.uniform2f(uScale, 4, 4);
-gl.uniform4f(uColor, 1, 0.5, 0, 1);
-
-gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangle), gl.STATIC_DRAW);
-
-gl.uniform1i(uBlendMode, 0);
-gl.disableVertexAttribArray(COL);
-gl.vertexAttrib4f(COL, 1, 0, 1, 1);
-
-gl.drawArrays(gl.TRIANGLES, 0, 3);
-gl.bindVertexArray(null);
-
-async function init() {
-    function createShader(type, source) {
-        let shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.log(gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
-        } else return shader;
-    }
-    const dir = './shaders';
-    const verShaderSrc = await fetch(`${dir}/vertex.glsl`).then(r => r.text());
-    const fragShaderSrc = await fetch(`${dir}/fragment.glsl`).then(r => r.text());
-    let verShader = createShader(gl.VERTEX_SHADER, verShaderSrc);
-    let fragShader = createShader(gl.FRAGMENT_SHADER, fragShaderSrc);
-    program = gl.createProgram();
-    gl.attachShader(program, verShader);
-    gl.attachShader(program, fragShader);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.log(gl.getProgramInfoLog(program));
-        gl.deleteProgram(program);
-    }
-    gl.useProgram(program);
-    aPosition = gl.getAttribLocation(program, "a_position");
-    uTranslation = gl.getUniformLocation(program, "u_translation");
-    uRotation = gl.getUniformLocation(program, "u_rotation");
-    uScale = gl.getUniformLocation(program, "u_scale");
-    uCanvas = gl.getUniformLocation(program, "u_clipSize");
-    uColor = gl.getUniformLocation(program, 'u_blendColor');
-    uBlendMode = gl.getUniformLocation(program, 'u_blendMode');
-    aColor = gl.getAttribLocation(program, 'a_color');
+let angle = 0;
+function update(deltaTime) {
+    angle += deltaTime / 1000;
 }
-async function fetchText(url) {
-    return fetch(url)
-        .then(r => r.ok ? r.text() : null)
-        .catch(() => null);
+
+function render() {
+    rr.clear(.1, .1, .2, 1);
+    rr.set_color(1, sin(angle), sin(angle * 2));
+    const scale = 3;
+    rr.set_transform(
+        300, 100, sin(angle),
+        scale * cos(angle),
+        scale * sin(angle)
+    );
+    rr.draw_triangle(0, 0, 0, 100, 100, 0);
+    const canvas = rr.canvas;
+    rr.set_transform(
+        canvas.width / 2, canvas.height, sin(angle),
+        1, 1
+    )
+    rr.set_translation(
+        rr.canvas.width / 2,
+        rr.canvas.height / 2
+    );
+    rr.set_scale(10, 1);
+    rr.set_rotation(angle);
+    rr.set_scale(1, sin(angle) * 3);
+    rr.set_color(cos(angle / 2), sin(angle), 1);
+    rr.set_rotation(angle * 3);
+    rr.set_translation(300, 100);
+    rr.draw_rect(-50, -50, 100, 100);
+    rr.draw_rect(-45, -45, 90, 90);
+    rr.draw_rect(-40, -40, 80, 80);
+    rr.draw_rect(-35, -35, 70, 70);
+    rr.draw_rect(-30, -30, 60, 60);
+    rr.fill_rect(-25, -25, 50, 50);
+    rr.set_rotation(cos(angle));
+    const polygon = new Float32Array([-20, 50, 100, 100, 150, 40, 100, 10, 200, -100]);
+    rr.draw_polygon(polygon);
+    rr.reset_transform();
+    rr.set_translation(10, 10);
+    rr.set_rotation(angle * 10);
+    rr.set_color(1, .4, .4);
+    rr.fill_triangle(-50, 50, 50, 50, -50, -50);
 }
+function run() {
+    let currTime = performance.now();
+    let deltaTime = currTime - lastTime;
+    lastTime = currTime;
+    update(deltaTime);
+    render();
+    requestAnimationFrame(run);
+}
+run();
 

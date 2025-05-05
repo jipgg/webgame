@@ -11,9 +11,8 @@ uniform vec2 u_clipSize;
 out vec4 src_color;
 
 void main() {
-    float u_rotation_rad = u_rotation / 180.f * 3.14f;
-    float cosTheta = cos(u_rotation_rad);
-    float sinTheta = sin(u_rotation_rad);
+    float cosTheta = cos(u_rotation);
+    float sinTheta = sin(u_rotation);
     mat3 transform = mat3(
         u_scale.x * cosTheta, u_scale.x * sinTheta, 0.0,
         -u_scale.y * sinTheta, u_scale.y * cosTheta, 0.0,
