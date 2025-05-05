@@ -38,7 +38,7 @@ export class Renderer {
             gl.deleteProgram(program);
         }
         /** @type{WebGLProgram} */
-        this.program = gl;
+        this.program = program;
         gl.useProgram(program);
         this.A_POSITION = 0;
         this.A_COLOR = 1;
@@ -68,30 +68,68 @@ export class Renderer {
         gl.enableVertexAttribArray(this.A_POSITION);
         gl.vertexAttribPointer(this.A_POSITION, 2, gl.FLOAT, false, 0, 0);
     }
-    set_scale(sx, sy) {
-        this.gl.uniform2f(this.U_SCALE, sx, sy ?? sx);
+    get_uniform(uniform) {
+        return this.gl.getUniform(this.program, uniform);
     }
+    /** @param {(v: number[]) => number[]} transformer */ 
+    transform_scale(transformer) {
+        const v = transformer(this.get_uniform(this.U_SCALE));
+        return this.reset_scale(v[0], v[1]);
+    }
+    reset_scale(sx, sy) {
+        const x = sx ?? 1;
+        this.gl.uniform2f(this.U_SCALE, x, sy ?? x);
+        return this;
+    }
+    /** @param {(old: number) => number} transformer */ 
+    transform_rotation(transformer) {
+        this.reset_rotation(transformer(this.get_uniform(this.U_ROTATION)));
+        return this;
+    } 
     /** @param{number}v */
-    set_rotation(r) {
-        this.gl.uniform1f(this.U_ROTATION, r);
+    reset_rotation(r) {
+        this.gl.uniform1f(this.U_ROTATION, r ?? 0);
+        return this;
     }
-    set_color(r, g, b, a) {
+    color_brush(r, g, b, a) {
         const gl = this.gl;
-        gl.vertexAttrib4f(this.A_COLOR, r, g, b, a ?? 1);
-        this.gl
+        gl.vertexAttrib4f(this.A_COLOR, r ?? 0, g ?? 0, b ?? 0, a ?? 1);
+        return this;
     }
-    set_translation(x, y) {
-        this.gl.uniform2f(this.U_TRANSLATION, x, y);
+    reset_translation(x, y) {
+        this.gl.uniform2f(this.U_TRANSLATION, x ?? 0, y ?? 0);
+        return this;
     }
-    reset_transform() {
-        this.set_translation(0, 0);
-        this.set_scale(1, 1);
-        this.set_rotation(0);
+    rotate(r) {
+        return this.transform_rotation(e => e + r);
     }
-    set_transform(x, y, r, sx, sy) {
-        this.set_translation(x, y);
-        this.set_rotation(r);
-        this.set_scale(sx, sy);
+    rotate_degrees(r) {
+        return this.transform_rotation(e => e + (r / 180 * Math.PI));
+    }
+    scale(x, y) {
+        return this.transform_scale(e => {
+            e[0] += x;
+            e[1] += y;
+            return e;
+        });
+    }
+    translate(x, y) {
+        return this.transform_translation(e => {
+            e[0] += x;
+            e[1] += y;
+            return e;
+        });
+    }
+    /** @param {(before: number[]) => number[]} transformer */ 
+    transform_translation(transformer) {
+        const v = transformer(this.get_uniform(this.U_TRANSLATION));
+        return this.reset_translation(v[0], v[1]);
+    }
+    reset_transformation(x, y, r, sx, sy) {
+        this.reset_translation(x ?? 0, y ?? 0);
+        this.reset_scale(sx ?? 1, sy ?? 1);
+        this.reset_rotation(r ?? 0);
+        return this;
     }
     fill_triangle(x1, y1, x2, y2, x3, y3) {
         const gl = this.gl;
@@ -99,6 +137,7 @@ export class Renderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.position_buffer);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
+        return this;
     }
     /** @param{Float32Array?} floats @param{number?} offset */
     bind_position_data(floats, offset) {
@@ -116,12 +155,14 @@ export class Renderer {
         const gl = this.gl;
         this.bind_position_data(new Float32Array([x1, y1, x2, y2]));
         gl.drawArrays(gl.LINES, 0, 2);
+        return this;
     }
     /** @param{Float32Array}arr */
     draw_lines(arr) {
         const gl = this.gl;
         this.bind_position_data(arr);
         gl.drawArrays(gl.LINES, 0, arr.length / 2);
+        return this;
     }
     /** @param{Float32Array}arr */
     draw_polygon(arr) {
@@ -136,19 +177,21 @@ export class Renderer {
         }
         this.bind_index_data(indices);
         gl.drawElements(gl.LINES, size * 2, gl.UNSIGNED_SHORT, 0);
-        //gl.drawArrays(gl.LINES, 0, arr.length / 2);
+        return this;
     }
-    fill_rect(x, y, w, h) {
+    fill_rectangle(x, y, w, h) {
         this.bind_position_data(rect_to_points(x, y, w, h));
         this.bind_index_data(FILL_RECT_INDICES);
         const gl = this.gl;
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        return this;
     }
-    draw_rect(x, y, w, h) {
+    draw_rectangle(x, y, w, h) {
         this.bind_position_data(rect_to_points(x, y, w, h))
         this.bind_index_data(DRAW_RECT_INDICES);
         const gl = this.gl;
         gl.drawElements(gl.LINES, 8, gl.UNSIGNED_SHORT, 0);
+        return this;
     }
     draw_triangle(x1, y1, x2, y2, x3, y3) {
         const gl = this.gl;
@@ -158,13 +201,42 @@ export class Renderer {
         const indices = new Uint16Array([0, 1, 1, 2, 2, 0]);
         this.bind_index_data(indices);
         gl.drawElements(gl.LINES, 6, gl.UNSIGNED_SHORT, 0);
+        return this;
     }
-    clear(r, g, b, a) {
+    clear_canvas(r, g, b, a) {
         const gl = this.gl;
         gl.clearColor(r ?? 0, g ?? 0, b ?? 0, a ?? 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
+        return this;
     }
 }
+/**
+ * @typedef {object} point
+ * @property {number} x - x-coordinate
+ * @property {number} y - y-coordinate
+ */
+
+/**
+ * @typedef {object} color
+ * @property {number} r - red
+ * @property {number} g - green
+ * @property {number} b - blue
+ * @property {number} a - alpha
+ */
+
+/**
+ * @typedef {object} rect
+ * @property {number} x - x-coordinate
+ * @property {number} y - y-coordinate
+ * @property {number} w - width
+ * @property {number} h - height
+ */
+/** @returns{point} */
+export const point = (x = 0, y = 0) => ({x: x, y: y});
+/** @returns{color} */
+export const color = (r = 0, g = 0, b = 0, a = 0) => ({r: r, g: g, b: b, a: a});
+/** @returns{rect} */
+export const rect = (x = 0, y = 0, w = 0, h = 0) => ({x: x, y: y, w: w, h: h});
 const FILL_RECT_INDICES = new Uint16Array([0, 1, 2, 3, 1, 2]);
 const DRAW_RECT_INDICES = new Uint16Array([0, 1, 1, 3, 3, 2, 2, 0]);
 export const rect_to_points = (x, y, w, h) => new Float32Array([
