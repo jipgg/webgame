@@ -1,4 +1,5 @@
 "use strict";
+import {Point, Rect, Color} from './primitives.js';
 /** @returns{Promise<Renderer>} */
 export async function create_renderer(canvas) {
     let api = new Renderer(canvas);
@@ -12,10 +13,11 @@ export class Renderer {
         this.canvas = canvas;
         /** @type{WebGL2RenderingContext} */
         this.gl = canvas.getContext('webgl2');
+        this.#init();
     }
-    async init() {
+    #init() {
         const gl = this.gl;
-        function createShader(type, source) {
+        function create_shader(type, source) {
             let shader = gl.createShader(type);
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
@@ -25,10 +27,8 @@ export class Renderer {
             } else return shader;
         }
         const dir = './shaders';
-        const verShaderSrc = await fetch(`${dir}/vertex.glsl`).then(r => r.text());
-        const fragShaderSrc = await fetch(`${dir}/fragment.glsl`).then(r => r.text());
-        let verShader = createShader(gl.VERTEX_SHADER, verShaderSrc);
-        let fragShader = createShader(gl.FRAGMENT_SHADER, fragShaderSrc);
+        let verShader = create_shader(gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+        let fragShader = create_shader(gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
         let program = gl.createProgram();
         gl.attachShader(program, verShader);
         gl.attachShader(program, fragShader);
@@ -40,19 +40,19 @@ export class Renderer {
         /** @type{WebGLProgram} */
         this.program = program;
         gl.useProgram(program);
-        this.A_POSITION = 0;
-        this.A_COLOR = 1;
-        this.U_TRANSLATION = gl.getUniformLocation(program, "u_translation");
-        this.U_ROTATION = gl.getUniformLocation(program, "u_rotation");
-        this.U_SCALE = gl.getUniformLocation(program, "u_scale");
-        this.U_CLIP_SIZE = gl.getUniformLocation(program, "u_clipSize");
-        this.U_BLEND_COLOR = gl.getUniformLocation(program, 'u_blendColor');
-        this.U_BLEND_MODE = gl.getUniformLocation(program, 'u_blendMode');
+        this.A_POS = gl.getAttribLocation(program, "position");
+        this.A_COL = gl.getAttribLocation(program, "color");
+        this.U_TRANS = gl.getUniformLocation(program, "translation");
+        this.U_ROT = gl.getUniformLocation(program, "rotation");
+        this.U_SCAL = gl.getUniformLocation(program, "scale");
+        this.U_CANVAS_SIZE = gl.getUniformLocation(program, "canvas_size");
+        this.U_COLOR_MOD = gl.getUniformLocation(program, 'color_mod');
 
         let canvas = this.canvas;
         gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.uniform2f(this.U_CLIP_SIZE, canvas.width, canvas.height);
-        gl.uniform2f(this.U_SCALE, 1, 1);
+        gl.uniform2f(this.U_CANVAS_SIZE, canvas.width, canvas.height);
+        gl.uniform2f(this.U_SCAL, 1, 1);
+        gl.uniform4f(this.U_COLOR_MOD, 1, 1, 1, 1);
         let draw_vao = gl.createVertexArray();
         gl.bindVertexArray(draw_vao);
         this.draw_vao = draw_vao;
@@ -61,43 +61,50 @@ export class Renderer {
         gl.bufferData(gl.ARRAY_BUFFER, 1024, gl.DYNAMIC_DRAW);
         this.index_buffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer);
-        // Indices for a triangle (clockwise or counterclockwise order)
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, 1024, gl.DYNAMIC_DRAW);
         this.color_buffer = gl.createBuffer();
 
-        gl.enableVertexAttribArray(this.A_POSITION);
-        gl.vertexAttribPointer(this.A_POSITION, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.A_POS);
+        gl.vertexAttribPointer(this.A_POS, 2, gl.FLOAT, false, 0, 0);
     }
     get_uniform(uniform) {
         return this.gl.getUniform(this.program, uniform);
     }
     /** @param {(v: number[]) => number[]} transformer */ 
     transform_scale(transformer) {
-        const v = transformer(this.get_uniform(this.U_SCALE));
-        return this.reset_scale(v[0], v[1]);
+        const v = transformer(this.get_uniform(this.U_SCAL));
+        return this.set_scale_raw(v[0], v[1]);
     }
-    reset_scale(sx, sy) {
+    set_scale_raw(sx, sy) {
         const x = sx ?? 1;
-        this.gl.uniform2f(this.U_SCALE, x, sy ?? x);
+        this.gl.uniform2f(this.U_SCAL, x, sy ?? x);
         return this;
     }
     /** @param {(old: number) => number} transformer */ 
     transform_rotation(transformer) {
-        this.reset_rotation(transformer(this.get_uniform(this.U_ROTATION)));
+        this.rotation_raw(transformer(this.get_uniform(this.U_ROT)));
         return this;
     } 
     /** @param{number}v */
-    reset_rotation(r) {
-        this.gl.uniform1f(this.U_ROTATION, r ?? 0);
+    rotation_raw(r) {
+        this.gl.uniform1f(this.U_ROT, r ?? 0);
         return this;
     }
-    color_brush(r, g, b, a) {
+    color(c) {
+        return this.color_raw(c.r, c.g, c.b, c.a);
+    }
+    color_raw(r = 0, g = 0, b = 0, a = 1) {
         const gl = this.gl;
-        gl.vertexAttrib4f(this.A_COLOR, r ?? 0, g ?? 0, b ?? 0, a ?? 1);
+        gl.vertexAttrib4f(this.A_COL, r, g, b, a);
         return this;
     }
-    reset_translation(x, y) {
-        this.gl.uniform2f(this.U_TRANSLATION, x ?? 0, y ?? 0);
+    color_mod_raw(r = 1, g = 1, b = 1, a = 1) {
+        const gl = this.gl;
+        gl.uniform4f(this.U_COLOR_MOD, r, g, b, a);
+        return this;
+    }
+    translation_raw(x, y) {
+        this.gl.uniform2f(this.U_TRANS, x ?? 0, y ?? 0);
         return this;
     }
     rotate(r) {
@@ -122,13 +129,13 @@ export class Renderer {
     }
     /** @param {(before: number[]) => number[]} transformer */ 
     transform_translation(transformer) {
-        const v = transformer(this.get_uniform(this.U_TRANSLATION));
-        return this.reset_translation(v[0], v[1]);
+        const v = transformer(this.get_uniform(this.U_TRANS));
+        return this.translation_raw(v[0], v[1]);
     }
-    reset_transformation(x, y, r, sx, sy) {
-        this.reset_translation(x ?? 0, y ?? 0);
-        this.reset_scale(sx ?? 1, sy ?? 1);
-        this.reset_rotation(r ?? 0);
+    reset_transform(x, y, r, sx, sy) {
+        this.translation_raw(x ?? 0, y ?? 0);
+        this.set_scale_raw(sx ?? 1, sy ?? 1);
+        this.rotation_raw(r ?? 0);
         return this;
     }
     fill_triangle(x1, y1, x2, y2, x3, y3) {
@@ -151,14 +158,18 @@ export class Renderer {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer);
         if (ui16s) gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, offset ?? 0, ui16s);
     }
-    draw_line(x1, y1, x2, y2) {
+    /** @param {Point} p1 @param {Point} p2  */
+    draw_line(p1, p2) {
+        return this.draw_line_raw(p1.x, p1.y, p2.x, p2.y);
+    }
+    draw_line_raw(x1, y1, x2, y2) {
         const gl = this.gl;
         this.bind_position_data(new Float32Array([x1, y1, x2, y2]));
         gl.drawArrays(gl.LINES, 0, 2);
         return this;
     }
     /** @param{Float32Array}arr */
-    draw_lines(arr) {
+    draw_lines_raw(arr) {
         const gl = this.gl;
         this.bind_position_data(arr);
         gl.drawArrays(gl.LINES, 0, arr.length / 2);
@@ -179,21 +190,29 @@ export class Renderer {
         gl.drawElements(gl.LINES, size * 2, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    fill_rectangle(x, y, w, h) {
+    /** @param{Rect} rect */
+    fill_rect(rect) {
+        return this.fill_rect_raw(rect.x, rect.y, rect.w, rect.h);
+    }
+    /** @param{Rect} rect */
+    draw_rect(rect) {
+        return this.draw_rect_raw(rect.x, rect.y, rect.w, rect.h);
+    }
+    fill_rect_raw(x, y, w, h) {
         this.bind_position_data(rect_to_points(x, y, w, h));
         this.bind_index_data(FILL_RECT_INDICES);
         const gl = this.gl;
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    draw_rectangle(x, y, w, h) {
+    draw_rect_raw(x, y, w, h) {
         this.bind_position_data(rect_to_points(x, y, w, h))
         this.bind_index_data(DRAW_RECT_INDICES);
         const gl = this.gl;
         gl.drawElements(gl.LINES, 8, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    draw_triangle(x1, y1, x2, y2, x3, y3) {
+    draw_triangle_raw(x1, y1, x2, y2, x3, y3) {
         const gl = this.gl;
         const positions = new Float32Array([x1, y1, x2, y2, x3, y3]);
         this.bind_position_data(positions);
@@ -203,40 +222,13 @@ export class Renderer {
         gl.drawElements(gl.LINES, 6, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    clear_canvas(r, g, b, a) {
+    clear(r, g, b, a) {
         const gl = this.gl;
         gl.clearColor(r ?? 0, g ?? 0, b ?? 0, a ?? 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         return this;
     }
 }
-/**
- * @typedef {object} point
- * @property {number} x - x-coordinate
- * @property {number} y - y-coordinate
- */
-
-/**
- * @typedef {object} color
- * @property {number} r - red
- * @property {number} g - green
- * @property {number} b - blue
- * @property {number} a - alpha
- */
-
-/**
- * @typedef {object} rect
- * @property {number} x - x-coordinate
- * @property {number} y - y-coordinate
- * @property {number} w - width
- * @property {number} h - height
- */
-/** @returns{point} */
-export const point = (x = 0, y = 0) => ({x: x, y: y});
-/** @returns{color} */
-export const color = (r = 0, g = 0, b = 0, a = 0) => ({r: r, g: g, b: b, a: a});
-/** @returns{rect} */
-export const rect = (x = 0, y = 0, w = 0, h = 0) => ({x: x, y: y, w: w, h: h});
 const FILL_RECT_INDICES = new Uint16Array([0, 1, 2, 3, 1, 2]);
 const DRAW_RECT_INDICES = new Uint16Array([0, 1, 1, 3, 3, 2, 2, 0]);
 export const rect_to_points = (x, y, w, h) => new Float32Array([
@@ -245,3 +237,41 @@ export const rect_to_points = (x, y, w, h) => new Float32Array([
     x, y + h,
     x + w, y + h,
 ]);
+
+const VERTEX_SHADER_SOURCE =
+    `#version 300 es
+    precision highp float;
+    layout(location = 0) in vec2 position;
+    layout(location = 1) in vec4 color;
+    uniform vec2 translation;
+    uniform vec2 scale;
+    uniform float rotation;
+    uniform vec2 canvas_size;
+    out vec4 src_color;
+    void main() {
+        float cos_r = cos(rotation);
+        float sin_r = sin(rotation);
+        mat3 transform = mat3(
+            scale.x * cos_r, scale.x * sin_r, 0.0,
+            -scale.y * sin_r, scale.y * cos_r, 0.0,
+            translation.x, translation.y, 1.0
+        );
+        vec3 transformed = transform * vec3(position, 1.0);
+        vec2 canvas_space = (transformed.xy / canvas_size) * 2.0 - 1.0;
+        gl_Position = vec4(canvas_space, 0.0, 1.0);
+        src_color = color;
+    }
+`;
+
+const FRAGMENT_SHADER_SOURCE =
+    `#version 300 es
+    precision highp float;
+
+    in vec4 src_color;
+    uniform vec4 color_mod;
+    out vec4 dst_color;
+
+    void main() {
+        dst_color = src_color * color_mod;
+    }
+`;
