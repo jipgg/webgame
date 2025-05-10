@@ -3,7 +3,6 @@
  * @property {number} x - x-coordinate
  * @property {number} y - y-coordinate
  */
-
 /**
  * @typedef {object} Color
  * @property {number} r - red
@@ -12,19 +11,12 @@
  * @property {number} a - alpha
  */
 
-/**
- * @typedef {object} Rect
- * @property {number} x - x-coordinate
- * @property {number} y - y-coordinate
- * @property {number} w - width
- * @property {number} h - height
- */
 /** @returns{Point} */
 export const Point = (x = 0, y = 0) => ({x: x, y: y});
 /** @returns{Color} */
 export const Color = (r = 0, g = 0, b = 0, a = 0) => ({r: r, g: g, b: b, a: a});
-/** @returns{Rect} */
-//export const Rect = (x = 0, y = 0, w = 0, h = 0) => ({x: x, y: y, w: w, h: h});
+export const DRAW_HITBOXES = true;
+export const HITBOX_COLOR = Color(0, 0, 1);
 
 export class Rect {
     constructor(x = 0, y = 0, w = 0, h = 0) {
@@ -125,4 +117,32 @@ export class V2 {
     get length() {
         return Math.sqrt(this.length_squared);
     }
+}
+export function rects_overlap(a, b) {
+    const a_top_right_x = a.x + a.w;
+    const a_top_right_y = a.y + a.h;
+    const b_top_right_x = b.x + b.w;
+    const b_top_right_y = b.y + b.h;
+
+    // Check for non-overlap conditions:
+    if (a.x > b_top_right_x || b.x > a_top_right_x) return false; // No overlap in x-axis
+    if (a.y > b_top_right_y || b.y > a_top_right_y) return false; // No overlap in y-axis
+
+    return true; // Overlap exists
+}
+export function circle_intersects_rect(center, radius, rect) {
+    let circleDistance = {};
+    circleDistance.x = Math.abs(center.x - rect.x);
+    circleDistance.y = Math.abs(center.y - rect.y);
+
+    if (circleDistance.x > (rect.w/2 + radius)) { return false; }
+    if (circleDistance.y > (rect.h/2 + radius)) { return false; }
+
+    if (circleDistance.x <= (rect.w/2)) { return true; } 
+    if (circleDistance.y <= (rect.h/2)) { return true; }
+
+    cornerDistance_sq = (circleDistance.x - rect.w/2)^2 +
+                         (circleDistance.y - rect.h/2)^2;
+
+    return (cornerDistance_sq <= (radius^2));
 }

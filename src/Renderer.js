@@ -1,5 +1,5 @@
 "use strict";
-import {Point, Rect, Color} from './primitives.js';
+import {Point, Rect, Color} from './common.js';
 /** @returns{Promise<Renderer>} */
 export async function create_renderer(canvas) {
     let api = new Renderer(canvas);
