@@ -1,13 +1,6 @@
 "use strict";
-import {Point, Rect, Color} from './common.js';
-/** @returns{Promise<Renderer>} */
-export async function create_renderer(canvas) {
-    let api = new Renderer(canvas);
-    await api.init();
-    return api;
-}
-
-export class Renderer {
+import * as cm from './common.js';
+export class renderer {
     constructor(canvas) {
         /** @type{HTMLCanvasElement} */
         this.canvas = canvas;
@@ -47,6 +40,7 @@ export class Renderer {
         this.U_SCAL = gl.getUniformLocation(program, "scale");
         this.U_CANVAS_SIZE = gl.getUniformLocation(program, "canvas_size");
         this.U_COLOR_MOD = gl.getUniformLocation(program, 'color_mod');
+        this.U_BLEND_MODE = gl.getUniformLocation(program, 'blend_mode');
 
         let canvas = this.canvas;
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -85,6 +79,10 @@ export class Renderer {
         this.rotation_raw(transformer(this.get_uniform(this.U_ROT)));
         return this;
     } 
+    blend_mode(blend) {
+        this.gl.uniform1i(this.U_BLEND_MODE, blend);
+        return this;
+    }
     /** @param{number}v */
     rotation_raw(r) {
         this.gl.uniform1f(this.U_ROT, r ?? 0);
@@ -190,11 +188,11 @@ export class Renderer {
         gl.drawElements(gl.LINES, size * 2, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    /** @param{Rect} rect */
+    /** @param{cm.rect} rect */
     fill_rect(rect) {
         return this.fill_rect_raw(rect.x, rect.y, rect.w, rect.h);
     }
-    /** @param{Rect} rect */
+    /** @param{cm.rect} rect */
     draw_rect(rect) {
         return this.draw_rect_raw(rect.x, rect.y, rect.w, rect.h);
     }
@@ -267,11 +265,54 @@ const FRAGMENT_SHADER_SOURCE =
     `#version 300 es
     precision highp float;
 
+    const int BLEND_MULTIPLY = 0;
+    const int BLEND_NONE = 1;
+    const int BLEND_DESATURATE = 2;
+    const int BLEND_SCREEN = 3;
+    const int BLEND_ADD = 4;
+    const int BLEND_ALPHA = 5;
     in vec4 src_color;
     uniform vec4 color_mod;
+    uniform int blend_mode;
     out vec4 dst_color;
 
     void main() {
-        dst_color = src_color * color_mod;
+        switch (blend_mode) {
+            case BLEND_MULTIPLY:
+                dst_color.rgb = src_color.rgb * color_mod.rgb;
+                dst_color.a = src_color.a;
+                break;
+            case BLEND_DESATURATE:
+                float luminance = dot(src_color.rgb, vec3(0.299, 0.587, 0.114));
+                vec3 gray = vec3(luminance);
+                float desaturation = color_mod.a;
+                dst_color.rgb = mix(src_color.rgb, gray, desaturation);
+                dst_color.a = src_color.a;
+                break;
+            case BLEND_SCREEN:
+                dst_color = 1.0 - (1.0 - src_color) * (1.0 - color_mod);
+                break;
+            case BLEND_ADD:
+                dst_color.rgb = src_color.rgb + color_mod.rgb;
+                dst_color.a = src_color.a;
+                break;
+            case BLEND_ALPHA:
+                float src_a = src_color.a;
+                float inv_a = 1.0 - src_a;
+                dst_color.rgb = src_color.rgb * src_a + color_mod.rgb * inv_a;
+                dst_color.a = src_a + color_mod.a * inv_a;
+                break;
+            default:
+                dst_color = src_color;
+                break;
+        }
     }
 `;
+export const BlendMode = {
+    MULTIPLY: 0,
+    NONE: 1,
+    DESATURATE: 2,
+    SCREEN: 3,
+    ADD: 4,
+    ALPHA_BLEND: 5,
+}

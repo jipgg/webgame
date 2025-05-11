@@ -1,10 +1,11 @@
 "use strict";
-import {Renderer} from './src/Renderer.js';
+import * as rndr from './src/rendering.js';
 import * as game from './src/game.js';
-const renderer = new Renderer(document.getElementById("main_canvas"));
+const renderer = new rndr.renderer(document.getElementById("main_canvas"));
 let last_time = performance.now();
 
-game.init(renderer.canvas, renderer);
+game.use_renderer(renderer);
+game.reset();
 window.addEventListener("keydown", game.keydown);
 window.addEventListener("keyup", game.keyup);
 run();
@@ -14,7 +15,7 @@ function run() {
     let delta_seconds = (current_time - last_time) / 1000;
     last_time = current_time;
     game.update(delta_seconds);
-    game.render(renderer);
+    game.render();
     requestAnimationFrame(run);
 }
 

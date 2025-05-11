@@ -48,6 +48,17 @@ canvas {
     text-align: center;
     top: 20px;
 }
+#play {
+    visibility: visible;
+}
+#paused {
+    font-size: 100px;
+    visibility: hidden;
+}
+#gameover {
+    font-size: 80px;
+    visibility: hidden;
+}
 
 #fps {
     font-size: 15px;
