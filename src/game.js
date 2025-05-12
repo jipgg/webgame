@@ -1,6 +1,6 @@
 import * as gfx from './graphics.js';
 //import * as Vec2 from './vec2.js';
-import * as cm from './common.js';
+import * as cmm from './common.js';
 import * as pipes from './pipes.js';
 import * as bird from './bird.js';
 class Multicall {
@@ -26,37 +26,11 @@ class Multicall {
 }
 
 
-class LabelWrapper {
-    /** @param{HTMLLabelElement} l */
-    constructor(l) {
-        this.label = l;
-    }
-    /** @param{string}id @returns{LabelWrapper} */
-    static from_id(id) {return new LabelWrapper(document.getElementById(id)); }
-    
-    /** @param{{r: number, g: number, b: number, a: number}} {r, g, b, a} */
-    set color({r=0, g=0, b=0}) {this.label.style.color = `rgb(${r * 255},${g * 255},${b * 255})`;}
-    get visible() {
-        return this.label.style.visibility == "visible";
-    }
-    set visible(v) {
-        return this.label.style.visibility = v ? "visible" : "hidden";
-    }
-    get text() {
-        return this.label.textContent;
-    }
-    set text(t) {
-        this.label.textContent = t;
-    }
-}
-/** @type{HTMLLabelElement} */
-const from_id = (id) => document.getElementById(id);
-//const fps_label = from_id("fps");
-const fps_label = LabelWrapper.from_id("fps");
-const score_label = LabelWrapper.from_id("score");
-const highscore_label = LabelWrapper.from_id("highscore");
-const play_label = LabelWrapper.from_id("play");
-const gameover_label = LabelWrapper.from_id("gameover");
+const fps_label = cmm.LabelWrapper.from_id("fps");
+const score_label = cmm.LabelWrapper.from_id("score");
+const highscore_label = cmm.LabelWrapper.from_id("highscore");
+const play_label = cmm.LabelWrapper.from_id("play");
+const gameover_label = cmm.LabelWrapper.from_id("gameover");
 const state_paused = 0;
 const state_playing = 1;
 const state_gameover = 2;
@@ -70,6 +44,7 @@ let elapsed_spawn_time = 0;
 
 let score = 0;
 let highscore = localStorage.getItem("highscore") || 0;
+pipes.entries
 const current_pipe = () => pipes.entries[score];
 //const modifier = () => score / 20 + 1;
 /** @type{gfx.DrawRenderer} */
@@ -83,7 +58,6 @@ export function use_renderer(r) {
 export function reset() {
     bird.position.replace(0, canv().height / 2);
     bird.reset_velocity();
-    //Pipes.entries = [];
     pipes.spawn(canv().height, 2);
     highscore = localStorage.getItem("highscore") || 0;
     highscore_label.text = `HI ${highscore}`;
@@ -97,7 +71,7 @@ export function update(delta_seconds) {
     if (state != state_gameover) {
         bird.save_angle(Math.atan2(bird.velocity.y, bird.velocity.x));
     }
-    if (bird.position.x > pipes.entries[score].x + pipes.WIDTH) {
+    if (bird.position.x > pipes.entries[score].x + pipes.width) {
         pipes.spawn(canv().height);
         ++score;
         score_label.text = `${score}`;
@@ -151,7 +125,7 @@ export function keyup(e) {
 
 }
 
-/** @param{renderer} renderer */
+/** @param{gfx.DrawRenderer} renderer */
 export function render() {
     switch (state) {
         case state_gameover:
@@ -167,10 +141,12 @@ export function render() {
             play_label.visible = true;
     }
     const c = renderer.canvas;
-    renderer.reset().color = [.4, .6, .9];
-    renderer.fill_rect(0, 0, c.width, c.height)
-        .translate(canv().width / 2, bird.position.y - bird.size.y / 2);
+    renderer.clear()
+        .reset_transform()
+        .set_color(.4, .6, .9, 1)
+        .fill_rect(0, 0, c.width, c.height);
+    renderer.push_translation(c.width / 2 - bird.position.x, 0);
     bird.draw(renderer);
-    renderer.translation = [c.width / 2 - bird.position.x - bird.size.x / 2, 0];
     pipes.draw(renderer);
+    renderer.pop_matrix();
 }

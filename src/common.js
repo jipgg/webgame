@@ -35,6 +35,155 @@ export class Rect {
 
 }
 
+export class Mat3 {
+    constructor(data = new Float32Array(9)) {
+        this.data = data;
+    }
+    static get identity() {
+        return new Mat3(new Float32Array([
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1
+        ]));
+    }
+    static from_scale(sx = 1, sy = 1) {
+        return new Mat3(new Float32Array([
+            sx, 0, 0,
+            0, sy, 0,
+            0, 0, 1
+        ]));
+    }
+    static from_translation(x = 0, y = 0) {
+        return new Mat3(new Float32Array([
+            1, 0, x,
+            0, 1, y,
+            0, 0, 1
+        ]));
+    }
+    static from_rotation(r = 0) {
+        const cos_r = Math.cos(r);
+        const sin_r = Math.sin(r);
+        return new Mat3(new Float32Array([
+            cos_r, -sin_r, 0,
+            sin_r, cos_r, 0,
+            0, 0, 1
+        ]));
+    }
+    static from_transform(x = 0, y = 0, r = 0, sx = 1, sy = 1) {
+        const cos_r = Math.cos(r);
+        const sin_r = Math.sin(r);
+        return new Mat3(new Float32Array([
+            sx * cos_r, -sin_r * sy, x,
+            sx * sin_r, sy * cos_r, y,
+            0, 0, 1
+        ]));
+    }
+    add(mat) {
+        const result = new Float32Array(9);
+        for (let i = 0; i < 9; i++) {
+            result[i] = this.data[i] + mat.data[i];
+        }
+        return new Mat3(result);
+    }
+    subtract(mat) {
+        const result = new Float32Array(9);
+        for (let i = 0; i < 9; i++) {
+            result[i] = this.data[i] - mat.data[i];
+        }
+        return new Mat3(result);
+    }
+    multiply_scalar(scalar) {
+        const result = new Float32Array(9);
+        for (let i = 0; i < 9; i++) {
+            result[i] = this.data[i] * scalar;
+        }
+        return new Mat3(result);
+    }
+    multiply(mat) {
+        const a = this.data;
+        const b = mat.data;
+        const result = new Float32Array(9);
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                result[row * 3 + col]
+                    = a[row * 3 + 0] * b[0 * 3 + col]
+                    + a[row * 3 + 1] * b[1 * 3 + col]
+                    + a[row * 3 + 2] * b[2 * 3 + col];
+            }
+        }
+        return new Mat3(result);
+    }
+    transform_vec3(vec) {
+        const x = this.data[0] * vec.x + this.data[1] * vec.y + this.data[2] * vec.z;
+        const y = this.data[3] * vec.x + this.data[4] * vec.y + this.data[5] * vec.z;
+        const z = this.data[6] * vec.x + this.data[7] * vec.y + this.data[8] * vec.z;
+        return new Vec3(x, y, z);
+    }
+}
+export class Vec3 {
+    constructor(x = 0, y = 0, z = 1) {
+        this.data = new Float32Array(3);
+        this.data[0] = x;
+        this.data[1] = y;
+        this.data[2] = z;
+    }
+
+    get x() {return this.data[0];}
+    get y() {return this.data[1];}
+    get z() {return this.data[2];}
+
+    set x(value) {this.data[0] = value;}
+    set y(value) {this.data[1] = value;}
+    set z(value) {this.data[2] = value;}
+    clone() {
+        return new Vec3(this.x, this.y, this.z);
+    }
+    add(v) {
+        return new Vec3(this.x + v.x, this.y + v.y, this.z + v.z);
+    }
+    compound_add(v) {
+        this.data[0] += v.x;
+        this.data[1] += v.y;
+        this.data[2] += v.z;
+        return this;
+    }
+    subtract(v) {
+        return new Vec3(this.x - v.x, this.y - v.y, this.z - v.z);
+    }
+    compound_subtract(v) {
+        this.data[0] -= v.x;
+        this.data[1] -= v.y;
+        this.data[2] -= v.z;
+        return this;
+    }
+    multiply(scalar) {
+        return new Vec3(this.x * scalar, this.y * scalar, this.z * scalar);
+    }
+    compound_multiply(scalar) {
+        this.data[0] *= scalar;
+        this.data[1] *= scalar;
+        this.data[2] *= scalar;
+        return this;
+    }
+    dot(v) {
+        return this.x * v.x + this.y * v.y + this.z * v.z;
+    }
+    get length_squared() {
+        return this.x * this.x + this.y * this.y + this.z * this.z;
+    }
+    get length() {
+        return Math.sqrt(this.length_squared);
+    }
+    normalize() {
+        const len = this.length;
+        if (len > 0) {
+            this.data[0] /= len;
+            this.data[1] /= len;
+            this.data[2] /= len;
+        }
+        return this;
+    }
+}
 
 export class Vec2 {
     constructor(x = 0, y = 0) {
@@ -42,7 +191,6 @@ export class Vec2 {
         this.data[0] = x;
         this.data[1] = y;
     }
-
     replace(x = 0, y = 0) {
         const v = this.data;
         v[0] = x;
@@ -108,19 +256,26 @@ export function rects_overlap(a, b) {
 
     return true;
 }
-export function circle_intersects_rect(center, radius, rect) {
-    let circleDistance = {};
-    circleDistance.x = Math.abs(center.x - rect.x);
-    circleDistance.y = Math.abs(center.y - rect.y);
-
-    if (circleDistance.x > (rect.w/2 + radius)) { return false; }
-    if (circleDistance.y > (rect.h/2 + radius)) { return false; }
-
-    if (circleDistance.x <= (rect.w/2)) { return true; } 
-    if (circleDistance.y <= (rect.h/2)) { return true; }
-
-    cornerDistance_sq = (circleDistance.x - rect.w/2)^2 +
-                         (circleDistance.y - rect.h/2)^2;
-
-    return (cornerDistance_sq <= (radius^2));
+export class LabelWrapper {
+    /** @param{HTMLLabelElement} l */
+    constructor(l) {
+        this.label = l;
+    }
+    /** @param{string}id @returns{LabelWrapper} */
+    static from_id(id) {return new LabelWrapper(document.getElementById(id)); }
+    
+    /** @param{{r: number, g: number, b: number, a: number}} {r, g, b, a} */
+    set color({r=0, g=0, b=0}) {this.label.style.color = `rgb(${r * 255},${g * 255},${b * 255})`;}
+    get visible() {
+        return this.label.style.visibility == "visible";
+    }
+    set visible(v) {
+        return this.label.style.visibility = v ? "visible" : "hidden";
+    }
+    get text() {
+        return this.label.textContent;
+    }
+    set text(t) {
+        this.label.textContent = t;
+    }
 }
