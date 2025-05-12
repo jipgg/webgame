@@ -1,7 +1,7 @@
 "use strict";
-import * as rndr from './src/rendering.js';
+import * as gfx from './src/graphics.js';
 import * as game from './src/game.js';
-const renderer = new rndr.renderer(document.getElementById("main_canvas"));
+const renderer = new gfx.DrawRenderer(document.getElementById("main_canvas"));
 let last_time = performance.now();
 
 game.use_renderer(renderer);

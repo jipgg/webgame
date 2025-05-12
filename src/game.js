@@ -1,9 +1,9 @@
-import * as rendering from './rendering.js';
+import * as gfx from './graphics.js';
 //import * as Vec2 from './vec2.js';
 import * as cm from './common.js';
 import * as pipes from './pipes.js';
 import * as bird from './bird.js';
-class multicall {
+class Multicall {
     constructor() {
         this.functions = [];
     }
@@ -26,13 +26,13 @@ class multicall {
 }
 
 
-class label_wrapper {
+class LabelWrapper {
     /** @param{HTMLLabelElement} l */
     constructor(l) {
         this.label = l;
     }
-    /** @param{string}id @returns{label_wrapper} */
-    static from_id(id) {return new label_wrapper(document.getElementById(id)); }
+    /** @param{string}id @returns{LabelWrapper} */
+    static from_id(id) {return new LabelWrapper(document.getElementById(id)); }
     
     /** @param{{r: number, g: number, b: number, a: number}} {r, g, b, a} */
     set color({r=0, g=0, b=0}) {this.label.style.color = `rgb(${r * 255},${g * 255},${b * 255})`;}
@@ -52,16 +52,15 @@ class label_wrapper {
 /** @type{HTMLLabelElement} */
 const from_id = (id) => document.getElementById(id);
 //const fps_label = from_id("fps");
-const fps_label = label_wrapper.from_id("fps");
-const score_label = label_wrapper.from_id("score");
-const highscore_label = label_wrapper.from_id("highscore");
-const play_label = label_wrapper.from_id("play");
-const gameover_label = label_wrapper.from_id("gameover");
+const fps_label = LabelWrapper.from_id("fps");
+const score_label = LabelWrapper.from_id("score");
+const highscore_label = LabelWrapper.from_id("highscore");
+const play_label = LabelWrapper.from_id("play");
+const gameover_label = LabelWrapper.from_id("gameover");
 const state_paused = 0;
 const state_playing = 1;
 const state_gameover = 2;
 /** @type{HTMLCanvasElement} */
-const gravity = new cm.vec2(0, -1200);
 //const BIRD_JUMP_POWER = 400;
 //const BIRD_SPEED = 200;
 const sin = Math.sin;
@@ -72,18 +71,18 @@ let elapsed_spawn_time = 0;
 let score = 0;
 let highscore = localStorage.getItem("highscore") || 0;
 const current_pipe = () => pipes.entries[score];
-const modifier = () => score / 20 + 1;
-/** @type{rendering.renderer} */
+//const modifier = () => score / 20 + 1;
+/** @type{gfx.DrawRenderer} */
 let renderer;
 const canv = () => renderer.canvas;
 
-/** @param{rendering.renderer} r */
+/** @param{gfx.DrawRenderer} r */
 export function use_renderer(r) {
     renderer = r;
 }
 export function reset() {
     bird.position.replace(0, canv().height / 2);
-    bird.velocity.replace(bird.S, 0);
+    bird.reset_velocity();
     //Pipes.entries = [];
     pipes.spawn(canv().height, 2);
     highscore = localStorage.getItem("highscore") || 0;
@@ -99,7 +98,7 @@ export function update(delta_seconds) {
         bird.save_angle(Math.atan2(bird.velocity.y, bird.velocity.x));
     }
     if (bird.position.x > pipes.entries[score].x + pipes.WIDTH) {
-        pipes.spawn(canv().height, 1, pipes.SPACING + 50 * modifier());
+        pipes.spawn(canv().height);
         ++score;
         score_label.text = `${score}`;
         highscore_label.text = `HI ${highscore}`;
@@ -118,13 +117,12 @@ export function update(delta_seconds) {
     
     switch (state) {
         case state_playing:
-            bird.apply_velocities(delta_seconds, gravity, modifier());
+            bird.apply_velocities(delta_seconds);
             break;
         case state_gameover:
             if (highscore > localStorage.getItem("highscore")) {
                 localStorage.setItem("highscore", highscore);
             }
-            bird.reset_velocity();
             break;
     }
     fps_label.text = `${Math.floor(10 / delta_seconds) / 10} FPS`;
@@ -168,10 +166,11 @@ export function render() {
             gameover_label.visible = false;
             play_label.visible = true;
     }
-    renderer.clear()
-        .reset_transform()
-        .color_raw(.4, .6, .9)
-        .fill_rect_raw(0, 0, renderer.canvas.width, renderer.canvas.height);
+    const c = renderer.canvas;
+    renderer.reset().color = [.4, .6, .9];
+    renderer.fill_rect(0, 0, c.width, c.height)
+        .translate(canv().width / 2, bird.position.y - bird.size.y / 2);
     bird.draw(renderer);
+    renderer.translation = [c.width / 2 - bird.position.x - bird.size.x / 2, 0];
     pipes.draw(renderer);
 }

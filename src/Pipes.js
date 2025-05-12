@@ -1,13 +1,13 @@
-import * as Common from './common.js' 
-const Rect = Common.rect;
-const Color = Common.color;
+import * as cmm from './common.js' 
+const Rect = cmm.Rect;
+const Color = cmm.color;
 export const WIDTH = 130;
 export const OPENING_HEIGHT = 250;
-export const SPACING = 500;
+export const SPACING = 600;
 export const COLOR = Color(0, .9, 0);
-/** @type{Array<pipe>} */
+/** @type{Array<Pipe>} */
 export let entries = [];
-export class pipe {
+export class Pipe {
     constructor(x, h) {
         this.opening_y = Math.random() * (h - OPENING_HEIGHT);
         this.x = x;
@@ -25,15 +25,17 @@ export function reset(c) {
 }
 export function spawn(h, count = 1, spacing = SPACING) {
     for (let i=0; i < count; ++i) {
-        entries.push(new pipe(spacing + spacing * entries.length, h))
+        entries.push(new Pipe(spacing + spacing * entries.length, h))
     }
 }
 export function draw(renderer) {
-    renderer.color(COLOR);
+    renderer.color = [COLOR.r, COLOR.g, COLOR.b, COLOR.a];
     for (let pipe of entries) {
-        renderer.fill_rect(pipe.lower_rect())
-            .fill_rect(pipe.upper_rect(renderer.canvas.height));
-        if (Common.draw_hitboxes) {
+        const [lx, ly, lw, lh] = pipe.lower_rect().data;
+        const [ux, uy, uw, uh] = pipe.upper_rect(renderer.canvas).data;
+        renderer.fill_rect(lx, ly, lw, lh)
+            .fill_rect(ux, uy, uw, uh);
+        if (cmm.draw_hitboxes) {
             renderer.color(Color(0, 0, 1))
                 .draw_rect(pipe.lower_rect())
                 .draw_rect(pipe.upper_rect(renderer.canvas.height))

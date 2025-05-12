@@ -1,13 +1,15 @@
 import * as cm from './common.js';
-import * as rn from './rendering.js';
-export const jump_power = 400;
-export const speed = 200;
+import * as gfx from './graphics.js';
+export const jump_power = 600;
+export const speed = 100;
 const sin = Math.sin;
 const cos = Math.cos;
 export let cached_angle = 0;
-export let position = new cm.vec2(-300, 100);
-export let velocity = new cm.vec2(speed, 0);
-export let size = new cm.vec2(70, 60);
+export let position = new cm.Vec2(-300, 100);
+export const base_velocity = new cm.Vec2(200, 0);
+export let velocity = base_velocity.clone;
+export let size = new cm.Vec2(70, 60);
+export let acceleration = new cm.Vec2(5, -1500);
 export function flap() {
     velocity.y = jump_power;
 }
@@ -15,7 +17,7 @@ export function flap() {
 export function rect() {
     const padding_x = size.x / 1000;
     const padding_y = size.y / 100;
-    return new cm.rect(
+    return new cm.Rect(
         position.x,
         position.y - size.y,
         Math.cos(cached_angle / 2) * size.x,
@@ -29,13 +31,12 @@ export function is_hit(upper, lower) {
 export function save_angle(angle) {
     cached_angle = Math.atan2(velocity.y, velocity.x);
 }
-export function apply_velocities(delta_seconds, gravity, x_speed_modifier) {
+export function apply_velocities(delta_seconds) {
+    velocity.compound_add(acceleration.multiply(delta_seconds));
     position.compound_add(velocity.multiply(delta_seconds));
-    velocity.compound_add(gravity.multiply(delta_seconds));
-    velocity.x = speed * x_speed_modifier;
 }
 export function reset_velocity() {
-    velocity = new cm.vec2();
+    velocity = base_velocity.clone;
 }
 export function update(delta_seconds, state) {
     switch (state) {
@@ -45,42 +46,38 @@ export function update(delta_seconds, state) {
             if (highscore > localStorage.getItem("highscore")) {
                 localStorage.setItem("highscore", highscore);
             }
-            bird.velocity = new cm.vec2(0, 0);
+            bird.velocity = new cm.Vec2(speed, 0);
             break;
     }
 }
-export function draw(renderer) {
-    const c = renderer.canvas;
-    renderer.color(cm.color(.7, .5, .05))
-        .translate(c.width / 2, position.y - size.y / 2)
-        .rotation_raw(0)
-        .rotate((cached_angle + Math.PI / 30) * 1.5)
-        .fill_rect_raw(-size.x *0.9 + size.x / 4, -size.y / 3, size.x * 0.7, size.y  * .6)
-        //.fill_rect_raw(-size.x, -size.y / 3, size.x * .8, size.y / 2)
-        .translation_raw(0)
-        .rotation_raw(0)
+/** @param{gfx.DrawRenderer} r */
+export function draw(r) {
+    const c = r.canvas;
+    r.color = [.7, .5, .05];
+    r.rotate((cached_angle + Math.PI / 30) * 1.5)
+        .fill_rect(-size.x * 0.9 + size.x / 4, -size.y / 3, size.x * 0.7, size.y  * .6)
+        .reset_transform()
         .rotate(cached_angle / 4)
-        .translate(c.width / 2, position.y - size.y / 2)
-        .color(cm.color(10, .8, .1))
-        .fill_rect_raw(-size.x / 2, -size.y / 2, size.x, size.y)
+        .translate(c.width / 2, position.y - size.y / 2);
+    r.color = [10, .8, .1];
+    r.fill_rect(-size.x / 2, -size.y / 2, size.x, size.y)
         .rotate(cached_angle / 8)
-        .fill_rect_raw(-size.x * 0.7, -size.y * 0.2, size.x, size.y / 2)
-        .rotate(cached_angle / 9)
-        .color(cm.color(1, .5, .1))
-        .fill_rect_raw(10, -size.y / 3, size.x / 1.6, size.y / 3)
-        .color(cm.color(1, 1, 1))
-        .fill_rect_raw(5, 5, size.x / 3, size.y / 3)
-        .color(cm.color(0, 0, 0))
-        .fill_rect_raw(10, 2.5, size.x / 4, size.y / 4)
-        .color(cm.color(10, .7, .1))
-        .rotation_raw(0)
-        .rotate(cached_angle * 1.2)
-        .fill_rect_raw(-size.x + size.x / 4, -size.y / 3, size.x * 0.7, size.y  * .6)
-        .rotation_raw(0)
-        .translation_raw(c.width / 2 - position.x - size.x / 2, 0);
+        .fill_rect(-size.x * 0.7, -size.y * 0.2, size.x, size.y / 2)
+        .rotate(cached_angle / 9);
+    r.color = [1, .5, .1];
+    r.fill_rect(10, -size.y / 3, size.x / 1.6, size.y / 3);
+    r.color = [1, 1, 1];
+    r.fill_rect(5, 5, size.x / 3, size.y / 3);
+    r.color = [0, 0, 0];
+    r.fill_rect(10, 2.5, size.x / 4, size.y / 4);
+    r.color = [1, .7, .1];
+    r.rotation = 0;
+    r.rotate(cached_angle * 1.2)
+        .fill_rect(-size.x + size.x / 4, -size.y / 3, size.x * 0.7, size.y  * .6);
+    r.rotation = 0;
     if (cm.draw_hitboxes) {
-        renderer.color(cm.hitbox_color)
-        renderer.draw_rect(rect());
+        r.color = [1, 0, 0];
+        r.draw_rect(rect());
     }
 }
 

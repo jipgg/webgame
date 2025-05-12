@@ -1,6 +1,6 @@
 "use strict";
 import * as cm from './common.js';
-export class renderer {
+export class DrawRenderer {
     constructor(canvas) {
         /** @type{HTMLCanvasElement} */
         this.canvas = canvas;
@@ -67,43 +67,51 @@ export class renderer {
     /** @param {(v: number[]) => number[]} transformer */ 
     transform_scale(transformer) {
         const v = transformer(this.get_uniform(this.U_SCAL));
-        return this.set_scale_raw(v[0], v[1]);
+        this.scale = v;
+        //return this.set_scale(v[0], v[1]);
+        return this;
     }
-    set_scale_raw(sx, sy) {
-        const x = sx ?? 1;
-        this.gl.uniform2f(this.U_SCAL, x, sy ?? x);
+    /** @returns{ArrayLike<number>} */
+    get scale() {
+        return this.get_uniform(this.U_SCAL);
+    }
+    set scale(v) {
+        this.gl.uniform2f(this.U_SCAL, v[0] ?? 0, v[1] ?? 0);
         return this;
     }
     /** @param {(old: number) => number} transformer */ 
     transform_rotation(transformer) {
-        this.rotation_raw(transformer(this.get_uniform(this.U_ROT)));
+        this.rotation = transformer(this.get_uniform(this.U_ROT));
         return this;
     } 
-    blend_mode(blend) {
-        this.gl.uniform1i(this.U_BLEND_MODE, blend);
+    /** @returns{number} */
+    get blend_mode() {
+        return this.get_uniform(this.U_BLEND_MODE);
+    }
+    set blend_mode(v) {
+        this.gl.uniform1i(this.U_BLEND_MODE, v);
         return this;
+    }
+    get rotation() {
+        return this.get_uniform(this.U_ROT);
     }
     /** @param{number}v */
-    rotation_raw(r) {
-        this.gl.uniform1f(this.U_ROT, r ?? 0);
-        return this;
+    set rotation(v) {
+        this.gl.uniform1f(this.U_ROT, v ?? 0);
     }
-    color(c) {
-        return this.color_raw(c.r, c.g, c.b, c.a);
-    }
-    color_raw(r = 0, g = 0, b = 0, a = 1) {
+    /** @param{ArrayLike<number>} v */
+    set color(v) {
         const gl = this.gl;
-        gl.vertexAttrib4f(this.A_COL, r, g, b, a);
-        return this;
+        gl.vertexAttrib4f(this.A_COL, v[0] ?? 0, v[1] ?? 0, v[2] ?? 0, v[3] ?? 1);
     }
-    color_mod_raw(r = 1, g = 1, b = 1, a = 1) {
+    /** @param{ArrayLike<number>} v */
+    set blend_color(v) {
         const gl = this.gl;
-        gl.uniform4f(this.U_COLOR_MOD, r, g, b, a);
-        return this;
+        gl.uniform4f(this.U_COLOR_MOD, v[0] ?? 0, v[1] ?? 0, v[2] ?? 0, v[3] ?? 1);
     }
-    translation_raw(x, y) {
-        this.gl.uniform2f(this.U_TRANS, x ?? 0, y ?? 0);
-        return this;
+    /** @param{ArrayLike<number>} v */
+    set translation(v) {
+        this.gl.uniform2f(this.U_TRANS, v[0] ?? 0, v[1] ?? 0);
     }
     rotate(r) {
         return this.transform_rotation(e => e + r);
@@ -128,12 +136,13 @@ export class renderer {
     /** @param {(before: number[]) => number[]} transformer */ 
     transform_translation(transformer) {
         const v = transformer(this.get_uniform(this.U_TRANS));
-        return this.translation_raw(v[0], v[1]);
+        this.translation = v;
+        return this;
     }
-    reset_transform(x, y, r, sx, sy) {
-        this.translation_raw(x ?? 0, y ?? 0);
-        this.set_scale_raw(sx ?? 1, sy ?? 1);
-        this.rotation_raw(r ?? 0);
+    reset_transform(x = 0, y = 0, r = 0, sx = 1, sy = 1) {
+        this.translation = [x , y];
+        this.scale = [sx, sy];
+        this.rotation = r;
         return this;
     }
     fill_triangle(x1, y1, x2, y2, x3, y3) {
@@ -156,18 +165,14 @@ export class renderer {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.index_buffer);
         if (ui16s) gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, offset ?? 0, ui16s);
     }
-    /** @param {Point} p1 @param {Point} p2  */
-    draw_line(p1, p2) {
-        return this.draw_line_raw(p1.x, p1.y, p2.x, p2.y);
-    }
-    draw_line_raw(x1, y1, x2, y2) {
+    draw_line(x1, y1, x2, y2) {
         const gl = this.gl;
         this.bind_position_data(new Float32Array([x1, y1, x2, y2]));
         gl.drawArrays(gl.LINES, 0, 2);
         return this;
     }
     /** @param{Float32Array}arr */
-    draw_lines_raw(arr) {
+    draw_lines(arr) {
         const gl = this.gl;
         this.bind_position_data(arr);
         gl.drawArrays(gl.LINES, 0, arr.length / 2);
@@ -188,29 +193,21 @@ export class renderer {
         gl.drawElements(gl.LINES, size * 2, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    /** @param{cm.rect} rect */
-    fill_rect(rect) {
-        return this.fill_rect_raw(rect.x, rect.y, rect.w, rect.h);
-    }
-    /** @param{cm.rect} rect */
-    draw_rect(rect) {
-        return this.draw_rect_raw(rect.x, rect.y, rect.w, rect.h);
-    }
-    fill_rect_raw(x, y, w, h) {
+    fill_rect(x, y, w, h) {
         this.bind_position_data(rect_to_points(x, y, w, h));
         this.bind_index_data(FILL_RECT_INDICES);
         const gl = this.gl;
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    draw_rect_raw(x, y, w, h) {
+    draw_rect(x, y, w, h) {
         this.bind_position_data(rect_to_points(x, y, w, h))
         this.bind_index_data(DRAW_RECT_INDICES);
         const gl = this.gl;
         gl.drawElements(gl.LINES, 8, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    draw_triangle_raw(x1, y1, x2, y2, x3, y3) {
+    draw_triangle(x1, y1, x2, y2, x3, y3) {
         const gl = this.gl;
         const positions = new Float32Array([x1, y1, x2, y2, x3, y3]);
         this.bind_position_data(positions);
@@ -220,9 +217,12 @@ export class renderer {
         gl.drawElements(gl.LINES, 6, gl.UNSIGNED_SHORT, 0);
         return this;
     }
-    clear(r, g, b, a) {
+    reset() {
+        return this.clear().reset_transform();
+    }
+    clear(r = 0, g = 0, b = 0, a = 0) {
         const gl = this.gl;
-        gl.clearColor(r ?? 0, g ?? 0, b ?? 0, a ?? 0);
+        gl.clearColor(r, g, b, a);
         gl.clear(gl.COLOR_BUFFER_BIT);
         return this;
     }

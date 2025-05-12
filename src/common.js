@@ -18,7 +18,7 @@ export const color = (r = 0, g = 0, b = 0, a = 0) => ({r: r, g: g, b: b, a: a});
 export const draw_hitboxes = false;
 export const hitbox_color = color(0, 0, 1);
 
-export class rect {
+export class Rect {
     constructor(x = 0, y = 0, w = 0, h = 0) {
         this.data = new Float32Array([x, y, w, h]);
     }
@@ -30,13 +30,13 @@ export class rect {
     set y(v) {this.data[1] = v;}
     set w(v) {this.data[2] = v;}
     set h(v) {this.data[3] = v;}
-    get size() {return new vec2(w, h);}
-    get position() {return new vec2(x, y);}
+    get size() {return new Vec2(w, h);}
+    get position() {return new Vec2(x, y);}
 
 }
 
 
-export class vec2 {
+export class Vec2 {
     constructor(x = 0, y = 0) {
         this.data = new Float32Array(2);
         this.data[0] = x;
@@ -53,34 +53,37 @@ export class vec2 {
     get y() {return this.data[1];}
     /** @param {number} v */
     set x(v) {this.data[0] = v;}
+    get clone() {
+        return new Vec2(this.x, this.y);
+    }
     /** @param {number} v */
     set y(v) {this.data[1] = v;}
 
-    /** @param {vec2} v */
-    add(v) {return new vec2(this.x + v.x, this.y + v.y);}
-    /** @param {vec2} v */
+    /** @param {Vec2} v */
+    add(v) {return new Vec2(this.x + v.x, this.y + v.y);}
+    /** @param {Vec2} v */
     compound_add(v) {
         this.data[0] += v.data[0];
         this.data[1] += v.data[1];
         return this;
     }
-    /** @param {vec2} v */
-    subtract(v) {return new vec2(this.x - v.x, this.y - v.y);}
-    /** @param {vec2} v */
+    /** @param {Vec2} v */
+    subtract(v) {return new Vec2(this.x - v.x, this.y - v.y);}
+    /** @param {Vec2} v */
     compound_subtract(v) {
         this.data[0] -= v.data[0];
         this.data[1] -= v.data[1];
         return this;
     }
     /** @param {number} v */
-    multiply(v) {return new vec2(this.x * v, this.y * v);}
+    multiply(v) {return new Vec2(this.x * v, this.y * v);}
     /** @param {number} v */
     compound_multiply(v) {
         this.data[0] *= v;
         this.data[1] *= v;
         return this;
     }
-    /** @param {vec2} v */
+    /** @param {Vec2} v */
     dot(v) {
         const a = this.data;
         const b = v.data;
