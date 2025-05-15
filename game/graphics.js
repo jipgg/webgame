@@ -10,7 +10,6 @@ export class DrawRenderer {
     }
     #init() {
         const gl = this.gl;
-
         /** @type{Array<cm.Mat3>} */
         this.matrix_stack = [];
         function create_shader(type, source) {

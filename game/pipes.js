@@ -1,7 +1,6 @@
 import * as cmm from './common.js';
 import * as gfx from './graphics.js';
 const Rect = cmm.Rect;
-const Color = cmm.color;
 export const width = 130;
 export const opening_height = 250;
 export const spacing = 600;

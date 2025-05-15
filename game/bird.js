@@ -1,9 +1,10 @@
 import * as cm from './common.js';
 import * as gfx from './graphics.js';
-export const jump_power = 700;
-export const speed = 100;
+const V2 = cm.Vec2;
 const sin = Math.sin;
 const cos = Math.cos;
+export const jump_power = 700;
+export const speed = 100;
 export let cached_angle = 0;
 export let position = new cm.Vec2(-300, 100);
 export const base_velocity = new cm.Vec2(200, 0);
@@ -13,8 +14,7 @@ export let acceleration = new cm.Vec2(5, -1600);
 export function flap() {
     velocity.y = jump_power;
 }
-
-export function rect() {
+export function hitbox() {
     const padding_x = size.x / 1000;
     const padding_y = size.y / 100;
     return new cm.Rect(
@@ -25,7 +25,7 @@ export function rect() {
     );
 }
 export function is_hit(upper, lower) {
-    const r = rect();
+    const r = hitbox();
     return cm.rects_overlap(r, upper) | cm.rects_overlap(r, lower) | position.y < size.y;
 }
 export function save_angle(angle) {
@@ -46,13 +46,12 @@ export function update(delta_seconds, state) {
             if (highscore > localStorage.getItem("highscore")) {
                 localStorage.setItem("highscore", highscore);
             }
-            bird.velocity = new cm.Vec2(speed, 0);
+            bird.velocity = new V2(speed, 0);
             break;
     }
 }
 /** @param{gfx.DrawRenderer} renderer */
 export function draw(renderer) {
-    const c = renderer.canvas;
     const p = position;
     const s = size;
     const a = cached_angle;

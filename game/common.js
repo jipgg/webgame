@@ -1,22 +1,19 @@
-/**
- * @typedef {object} Point
- * @property {number} x - x-coordinate
- * @property {number} y - y-coordinate
- */
-/**
- * @typedef {object} Color
- * @property {number} r - red
- * @property {number} g - green
- * @property {number} b - blue
- * @property {number} a - alpha
- */
-
-/** @returns{Point} */
-export const point = (x = 0, y = 0) => ({x: x, y: y});
-/** @returns{Color} */
-export const color = (r = 0, g = 0, b = 0, a = 0) => ({r: r, g: g, b: b, a: a});
-export const draw_hitboxes = false;
-export const hitbox_color = color(0, 0, 1);
+export class Color {
+    constructor(r = 0, g = 0, b = 0, a = 1) {
+        this.data = new Float32Array([r, g, b, a]);
+    }
+    static get white() {
+        return new Color(1, 1, 1);
+    }
+    get r() {return this.data[0];}
+    get g() {return this.data[1];}
+    get b() {return this.data[2];}
+    get a() {return this.data[3];}
+    set r(v) {this.data[0] = v;}
+    set g(v) {this.data[1] = v;}
+    set b(v) {this.data[2] = v;}
+    set a(v) {this.data[3] = v;}
+}
 
 export class Rect {
     constructor(x = 0, y = 0, w = 0, h = 0) {
